@@ -26,8 +26,11 @@ full_match = {}
 def build_hash(path, piece_size=piece_size, start_piece=0, end_piece=-1):
     # TODO: start_piece not yet implemented
     ihash = xxhash.xxh64()
-    ihandle = open(path, 'rb')
-
+    try:
+        ihandle = open(path, 'rb')
+    except:
+        print(f"Could not open {path}, skipping.")
+        return None
 
     # in a full implementation, we'd be comparing piecewise for greater
     # efficiency.
@@ -56,6 +59,9 @@ for root, dirs, files in dl_dir:
         # print(f"Built path {item_path}.")
         # print ("beginning prehash... ")
         prehash = build_hash(item_path, end_piece=1)
+        if prehash == None:
+            # print("Aborting hash.")
+            continue
         if prehash not in target_dict:
             target_dict[prehash] = []
         target_dict[prehash].append(item_path)
