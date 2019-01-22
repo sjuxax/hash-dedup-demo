@@ -13,9 +13,15 @@ cli_parser.add_argument('--qstat-verify', help='run hash confirms over qstats',
                         action='store_true')
 cli_parser.add_argument('--dump-bad-qlists', help='output bad qlist content',
                         action='store_true')
+cli_parser.add_argument('--dumb-dedup', help='mtime/size match good enough',
+                        action='store_true')
+cli_parser.add_argument('--distrust-sizes', help='prehash everything for exhaustive correctness',
+                        action='store_true')
 cli_parser.add_argument('--limit', help='stop processing after limit files',
                         type=int)
 
+# cli_parser.add_argument('--prehash-blocks', type=int,
+#                         help='512K units to process for the prehash')
 cli_args = cli_parser.parse_args()
 
 if cli_args.dump_bad_qlists and not cli_args.qstat_verify:
