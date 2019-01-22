@@ -23,29 +23,21 @@ if not os.path.exists(dl_path):
 early_match = {}
 full_match = {}
 
-def build_hash(path, filesize=-1, piece_size=piece_size, start_piece=0, end_piece=-1):
+def build_hash(path, piece_size=piece_size, start_piece=0, end_piece=-1):
     # TODO: start_piece not yet implemented
     ihash = xxhash.xxh64()
     ihandle = open(path, 'rb')
 
-    if filesize == -1:
-        # Caller failed to provide filesize, figuring it out ourselves...
-        # (we trust caller-provided filesizes to size extraneous stat calls)
-        filesize = os.path.getsize(path)
 
-    #
-    # figure out the largest chunk we want and allow python to control the
-    # mechanics of reading up to that size.
-    #
     # in a full implementation, we'd be comparing piecewise for greater
     # efficiency.
-    #
-    if filesize <= piece_size or end_piece == -1:
-        imax = filesize
+
+    if end_piece == -1:
+        imax = -1
     else:
         imax = piece_size*end_piece
 
-    ihash.update(ihandle.read(imax))
+    ihash.update(ihandle.read1(imax))
     return ihash.hexdigest()
 
 count = 0
@@ -56,21 +48,14 @@ die_flag = False
 # Hash the first piece of each file; only do a full comparison if the first
 # chunks match.
 #
-# If the entire file is smaller than the initial piece size, just short-circuit
-# it to the full comparison lot directly.
-#
 for root, dirs, files in dl_dir:
     for file in files:
         item_path = os.path.join(root, file)
-        isize = os.path.getsize(item_path)
-        if isize <= piece_size:
-            target_dict = early_match
-        else:
-            target_dict = full_match
 
+        target_dict = early_match
         # print(f"Built path {item_path}.")
         # print ("beginning prehash... ")
-        prehash = build_hash(item_path, filesize=isize, end_piece=1)
+        prehash = build_hash(item_path, end_piece=1)
         if prehash not in target_dict:
             target_dict[prehash] = []
         target_dict[prehash].append(item_path)
