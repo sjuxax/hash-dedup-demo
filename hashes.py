@@ -97,7 +97,8 @@ for root, dirs, files in dl_dir:
             stat_idx[sz][mtime] = []
         stat_idx[sz][mtime].append(item_path)
         quickstat_count += 1
-        print(f"\r quickstatting: {quickstat_count} / {count_limit} ", end="")
+        print(f"\r quickstatting: {quickstat_count} / {count_limit} ", end="",
+              file=sys.stderr)
         if count_limit and quickstat_count >= count_limit:
             die_flag = True
             break
@@ -146,7 +147,7 @@ for item_path in do_hash:
     else:
         cl_display = count_limit
 
-    print(f"\rprehashing: {count} / {cl_display}", end="")
+    print(f"\rprehashing: {count} / {cl_display}", end="", file=sys.stderr)
     if count_limit and count >= count_limit:
         die_flag = True
         break
@@ -161,7 +162,7 @@ evs_len = len(evs)
 full_count = 0
 for ev in evs:
     full_count += 1
-    print(f"\rfullhashing: {full_count} / {evs_len}", end="")
+    print(f"\rfullhashing: {full_count} / {evs_len}", end="", file=sys.stderr)
     for e_match in ev:
         fhash = build_hash(e_match)
         if fhash not in full_match:
