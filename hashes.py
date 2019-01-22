@@ -133,7 +133,7 @@ print(f"quickstat discovered {do_hash_len} items to hash")
 # chunks match.
 #
 for item_path in do_hash:
-    prehash = build_hash(item_path, end_piece=1)
+    prehash = build_hash(item_path, end_piece=4)
     if prehash == None:
         # print("Aborting hash.")
         continue
