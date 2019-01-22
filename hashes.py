@@ -9,25 +9,12 @@ from pprint import pprint
 # ---------
 cli_parser = argparse.ArgumentParser()
 cli_parser.add_argument('path', help='the path to search for duplicates.')
-cli_parser.add_argument('--qstat-verify', help='run hash confirms over qstats',
-                        action='store_true')
-cli_parser.add_argument('--dump-bad-qlists', help='output bad qlist content',
-                        action='store_true')
-cli_parser.add_argument('--dumb-dedup', help='mtime/size match good enough',
-                        action='store_true')
-cli_parser.add_argument('--distrust-sizes', help='prehash everything for exhaustive correctness',
-                        action='store_true')
 cli_parser.add_argument('--limit', help='stop processing after limit files',
                         type=int)
 
 # cli_parser.add_argument('--prehash-blocks', type=int,
 #                         help='512K units to process for the prehash')
 cli_args = cli_parser.parse_args()
-
-if cli_args.dump_bad_qlists and not cli_args.qstat_verify:
-    print("Sorry, you can't dump bad qlists without verifying them.")
-    print("Use the --qstat-verify flag too.")
-    sys.exit(1)
 
 dl_path = cli_args.path
 # note: symlinks not followed by default; presumably, you've intentionally
@@ -46,7 +33,7 @@ if not os.path.exists(dl_path):
 # ----
 early_match = {}
 full_match = {}
-# stat_idx expects stat_idx[size][mtime] = [path, path, path, ...]
+# stat_idx expects stat_idx[size] = [path, path, path, ...]
 stat_idx = {}
 
 def build_hash(path, piece_size=piece_size, start_piece=0, end_piece=-1):
@@ -75,35 +62,24 @@ die_flag = False
 
 # QUICKSTAT
 # --------
-# stats the entire directory tree and considers files with identical
-# mtime/filesize pairs as duplicates.
+# stats the entire directory tree and uses the size header to determine
+# if there are potential duplicates within the tree.
 #
-# This hack is well-known. For example, rsync operates in this mode by default.
-# If a file has the same name, size, and mtime, its content is considered
-# identical unless the --checksum/-C flag is passed. The difference is that
-# rsync has an authoritative copy on the source side of the equation.
-#
-# We intentionally didn't implement this hack in the first pass due to the
-# problem's emphasis on 100% correctness. This WILL yield false positives.
-#
-# qstat reports should always be verified before action is taken.
+# There is a theoretical possibility of risk/damage with this, especially as it
+# pertains to things like sparse files. Watch your butt. A flag to allow the
+# user to distrust size headers would be a nice-to-have.
 #
 for root, dirs, files in dl_dir:
     for file in files:
         item_path = os.path.join(root, file)
 
-        # use mtime and size as an approximation of sameness
-        # per convention, this can be disabled with -C.
         stat_ret = os.stat(item_path, follow_symlinks=False)
 
         sz = stat_ret.st_size
-        mtime = stat_ret.st_mtime
 
         if sz not in stat_idx:
-            stat_idx[sz] = {}
-        if mtime not in stat_idx[sz]:
-            stat_idx[sz][mtime] = []
-        stat_idx[sz][mtime].append(item_path)
+            stat_idx[sz] = []
+        stat_idx[sz].append(item_path)
         quickstat_count += 1
         print(f"\r quickstatting: {quickstat_count} / {count_limit} ", end="",
               file=sys.stderr)
@@ -115,24 +91,14 @@ for root, dirs, files in dl_dir:
 print(f" / quickstatted: {quickstat_count}")
 
 do_hash = []
-qstat_dupes = []
-qstat_dupes_counter = 0
 
-for sz_key, mtime_vals in stat_idx.items():
-    for mtime_key, path_vals in mtime_vals.items():
-        pval_len = len(path_vals)
-        if pval_len == 1 and not cli_args.qstat_verify:
-            [do_hash.append(p) for p in path_vals]
-        elif pval_len > 1:
-            qstat_dupes.append(path_vals)
-            qstat_dupes_counter += pval_len
-            # print(f"pval_len: {pval_len} / len(path_vals): {len(path_vals)}")
-            # print(f"sz_key: {sz_key}, mtime_key: {mtime_key}")
-            # pprint(path_vals)
+for sz_key, sz_vals in stat_idx.items():
+        sz_len = len(sz_vals)
+        if sz_len > 1:
+            [do_hash.append(p) for p in sz_vals]
 
 do_hash_len = len(do_hash)
 
-print(f"quickstat discovered {qstat_dupes_counter} known dups")
 print(f"quickstat discovered {do_hash_len} items to hash")
 
 # PRE-HASH
@@ -184,67 +150,17 @@ print(f" / fullhashed: {full_count}")
 #
 dupe_counter = 0
 dupe_total = 0
-bad_qstat_counter = 0
-bad_qlist_counter = 0
-good_qstat_counter = 0
-
-for qlist in qstat_dupes:
-    if cli_args.qstat_verify:
-        bad_qlist = False
-        qlist_h = None
-        qlist_ark = {}
-        print(f"qlist {id(qlist)} (len {len(qlist)}): ", end="")
-        for qi in qlist:
-            qi_hash = build_hash(qi)
-            if qi_hash == None:
-                continue
-            qlist_ark[qi] = qi_hash
-            if qlist_h == None:
-                good_qstat_counter += 1
-                # first loop should set the list's expected hash.
-                qlist_h = qi_hash
-                print(f"*{qlist_h[:5]}", end=" ")
-            elif qi_hash != qlist_h:
-                bad_qstat_counter += 1
-                print("-", end=" ")
-                qlist_h = qi_hash
-                bad_qlist = True
-            elif qi_hash == qlist_h:
-                good_qstat_counter += 1
-                print("+", end=" ")
-        if bad_qlist:
-            bad_qlist_counter += 1
-            if cli_args.dump_bad_qlists:
-                print("")
-                pprint(qlist_ark)
-        print("")
-    else:
-        print(f"Matching qstats\n\t{','.join(qlist)}")
 
 for dupe_k, dupes in full_match.items():
     dlen = len(dupes)
     dupe_total += (dlen-1)
     if dlen > 1:
         dupe_counter += 1
-        if not cli_args.qstat_verify:
-            print(f"Matching xxhash64 {dupe_k}\n\t{','.join(dupes)}")
+        print(f"Matching xxhash64 {dupe_k}\n\t{','.join(dupes)}")
 
 print("----- ----- ----- ----- ----- ----- ")
 print(f"Done.")
-if cli_args.qstat_verify:
-    if bad_qstat_counter and qstat_dupes_counter:
-        qstat_error_rate = (bad_qstat_counter / qstat_dupes_counter)
-    else:
-        qstat_error_rate = 0
-    print(f"/// qstat verify on ///")
-    # print(f"qlist all:      {len(qstat_dupes)}")
-    # print(f"qlist bad:      {bad_qlist_counter}")
-    print(f"qstat all:      {qstat_dupes_counter}")
-    print(f"qstat ok:       {good_qstat_counter}")
-    print(f"qstat bad:      {bad_qstat_counter}")
-    print("error rate:     {:.2%}".format(qstat_error_rate))
-else:
-    print(f"Detected {qstat_dupes_counter} files during quickstat dedup.")
-    print(f"Prehashed {count} files and full-hashed {full_count} files.")
-    print(f"xxhash detected {dupe_counter} files with {dupe_total} duplicates.")
-    print(f"Total duplicates: {dupe_total+qstat_dupes_counter}")
+print(f"Detected {do_hash_len} candidate matches from {quickstat_count} files.")
+print(f"Prehashed {count} files and full-hashed {full_count} files.")
+print(f"xxhash detected {dupe_counter} files with {dupe_total} duplicates.")
+print(f"Total duplicates: {dupe_total}")
