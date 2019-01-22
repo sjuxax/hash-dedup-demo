@@ -2,11 +2,16 @@
 import xxhash
 import os
 import sys
+import argparse
 # import pprint
 
 # CONSTANTS
 # ---------
-dl_path = '/mnt/download'
+cli_parser = argparse.ArgumentParser()
+cli_parser.add_argument('path', help='the path to search for duplicates.')
+cli_args = cli_parser.parse_args()
+
+dl_path = cli_args.path
 # note: symlinks not followed by default; presumably, you've intentionally
 # "duplicated" the content if you've made a link to it.
 # To change, set followlinks=True on os.walk.
@@ -17,7 +22,6 @@ count_limit = None
 
 if not os.path.exists(dl_path):
     print("The directory you specified doesn't exist.")
-    print("Please change the value of dl_path on line 7 of the script.")
     sys.exit(1)
 
 # MAIN
