@@ -11,7 +11,7 @@ dl_path = '/mnt/download'
 dl_dir = os.walk(dl_path)
 piece_size = 524288
 # note: file count analyzed is capped for demo purposes
-count_limit = 10000
+count_limit = None
 
 if not os.path.exists(dl_path):
     print("The directory you specified doesn't exist.")
@@ -60,8 +60,14 @@ for root, dirs, files in dl_dir:
             target_dict[prehash] = []
         target_dict[prehash].append(item_path)
         count += 1
-        print(f"\rprehashing: {count} / {count_limit}", end="")
-        if count > count_limit:
+
+        if not count_limit:
+            cl_display = "???"
+        else:
+            cl_display = count_limit
+
+        print(f"\rprehashing: {count} / {cl_display}", end="")
+        if count_limit and count > count_limit:
             die_flag = True
             break
     if die_flag:
@@ -76,16 +82,16 @@ print(f" / prehashed: {count}")
 # these in more places.
 evs = [ev for ek, ev in early_match.items() if len(ev) > 1]
 evs_len = len(evs)
-count = 0
+full_count = 0
 for ev in evs:
-    count += 1
-    print(f"\rfullhashing: {count} / {evs_len}", end="")
+    full_count += 1
+    print(f"\rfullhashing: {full_count} / {evs_len}", end="")
     for e_match in ev:
         fhash = build_hash(e_match)
         if fhash not in full_match:
             full_match[fhash] = []
         full_match[fhash].append(e_match)
-print(f" / fullhashed: {count}")
+print(f" / fullhashed: {full_count}")
 
 # RESULTS
 # -------
@@ -100,4 +106,6 @@ for dupe_k, dupes in full_match.items():
         dupe_counter += 1
         print(f"Matching xxhash64 {dupe_k} = {','.join(dupes)}")
 
+print("-----")
 print(f"Done. Detected {dupe_counter} objects with {dupe_total} duplicates.")
+print(f"Prehashed {count} and full-hashed {full_count}")
