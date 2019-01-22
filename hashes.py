@@ -13,6 +13,8 @@ cli_parser.add_argument('--qstat-verify', help='run hash confirms over qstats',
                         action='store_true')
 cli_parser.add_argument('--dump-bad-qlists', help='output bad qlist content',
                         action='store_true')
+cli_parser.add_argument('--limit', help='stop processing after limit files',
+                        type=int)
 
 cli_args = cli_parser.parse_args()
 
@@ -28,7 +30,7 @@ dl_path = cli_args.path
 dl_dir = os.walk(dl_path)
 piece_size = 524288
 # note: file count analyzed is capped for demo purposes
-count_limit = 10000
+count_limit = cli_args.limit
 
 if not os.path.exists(dl_path):
     print("The directory you specified doesn't exist.")
