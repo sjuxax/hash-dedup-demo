@@ -3,13 +3,23 @@ import xxhash
 import os
 import sys
 import argparse
-# import pprint
+from pprint import pprint
 
 # CONSTANTS
 # ---------
 cli_parser = argparse.ArgumentParser()
 cli_parser.add_argument('path', help='the path to search for duplicates.')
+cli_parser.add_argument('--qstat-verify', help='run hash confirms over qstats',
+                        action='store_true')
+cli_parser.add_argument('--dump-bad-qlists', help='output bad qlist content',
+                        action='store_true')
+
 cli_args = cli_parser.parse_args()
+
+if cli_args.dump_bad_qlists and not cli_args.qstat_verify:
+    print("Sorry, you can't dump bad qlists without verifying them.")
+    print("Use the --qstat-verify flag too.")
+    sys.exit(1)
 
 dl_path = cli_args.path
 # note: symlinks not followed by default; presumably, you've intentionally
@@ -18,7 +28,7 @@ dl_path = cli_args.path
 dl_dir = os.walk(dl_path)
 piece_size = 524288
 # note: file count analyzed is capped for demo purposes
-count_limit = None
+count_limit = 10000
 
 if not os.path.exists(dl_path):
     print("The directory you specified doesn't exist.")
@@ -102,13 +112,14 @@ qstat_dupes_counter = 0
 for sz_key, mtime_vals in stat_idx.items():
     for mtime_key, path_vals in mtime_vals.items():
         pval_len = len(path_vals)
-        if pval_len == 1:
+        if pval_len == 1 and not cli_args.qstat_verify:
             [do_hash.append(p) for p in path_vals]
         elif pval_len > 1:
             qstat_dupes.append(path_vals)
             qstat_dupes_counter += pval_len
+            # print(f"pval_len: {pval_len} / len(path_vals): {len(path_vals)}")
             # print(f"sz_key: {sz_key}, mtime_key: {mtime_key}")
-            # pprint.pprint(path_vals)
+            # pprint(path_vals)
 
 do_hash_len = len(do_hash)
 
@@ -164,19 +175,64 @@ print(f" / fullhashed: {full_count}")
 #
 dupe_counter = 0
 dupe_total = 0
+bad_qstat_counter = 0
+bad_qlist_counter = 0
+good_qstat_counter = 0
+
 for qlist in qstat_dupes:
-    print(f"Matching qstats\n\t{','.join(qlist)}")
+    if cli_args.qstat_verify:
+        bad_qlist = False
+        qlist_h = None
+        qlist_ark = {}
+        print(f"qlist {id(qlist)} (len {len(qlist)}): ", end="")
+        for qi in qlist:
+            qi_hash = build_hash(qi)
+            if qi_hash == None:
+                continue
+            qlist_ark[qi] = qi_hash
+            if qlist_h == None:
+                good_qstat_counter += 1
+                # first loop should set the list's expected hash.
+                qlist_h = qi_hash
+                print(f"*{qlist_h[:5]}", end=" ")
+            elif qi_hash != qlist_h:
+                bad_qstat_counter += 1
+                print("-", end=" ")
+                qlist_h = qi_hash
+                bad_qlist = True
+            elif qi_hash == qlist_h:
+                good_qstat_counter += 1
+                print("+", end=" ")
+        if bad_qlist:
+            bad_qlist_counter += 1
+            if cli_args.dump_bad_qlists:
+                print("")
+                pprint(qlist_ark)
+        print("")
+    else:
+        print(f"Matching qstats\n\t{','.join(qlist)}")
 
 for dupe_k, dupes in full_match.items():
     dlen = len(dupes)
     dupe_total += (dlen-1)
     if dlen > 1:
         dupe_counter += 1
-        print(f"Matching xxhash64 {dupe_k}\n\t{','.join(dupes)}")
+        if not cli_args.qstat_verify:
+            print(f"Matching xxhash64 {dupe_k}\n\t{','.join(dupes)}")
 
 print("----- ----- ----- ----- ----- ----- ")
 print(f"Done.")
-print(f"Detected {qstat_dupes_counter} files during quickstat dedup.")
-print(f"Prehashed {count} files and full-hashed {full_count} files.")
-print(f"xxhash detected {dupe_counter} files with {dupe_total} duplicates.")
-print(f"Total duplicates: {dupe_total+qstat_dupes_counter}")
+if cli_args.qstat_verify:
+    qstat_error_rate = (bad_qstat_counter / qstat_dupes_counter)
+    print(f"/// qstat verify on ///")
+    # print(f"qlist all:      {len(qstat_dupes)}")
+    # print(f"qlist bad:      {bad_qlist_counter}")
+    print(f"qstat all:      {qstat_dupes_counter}")
+    print(f"qstat ok:       {good_qstat_counter}")
+    print(f"qstat bad:      {bad_qstat_counter}")
+    print("error rate:     {:.2%}".format(qstat_error_rate, '0.02'))
+else:
+    print(f"Detected {qstat_dupes_counter} files during quickstat dedup.")
+    print(f"Prehashed {count} files and full-hashed {full_count} files.")
+    print(f"xxhash detected {dupe_counter} files with {dupe_total} duplicates.")
+    print(f"Total duplicates: {dupe_total+qstat_dupes_counter}")
