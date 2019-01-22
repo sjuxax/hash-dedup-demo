@@ -226,7 +226,10 @@ for dupe_k, dupes in full_match.items():
 print("----- ----- ----- ----- ----- ----- ")
 print(f"Done.")
 if cli_args.qstat_verify:
-    qstat_error_rate = (bad_qstat_counter / qstat_dupes_counter)
+    if bad_qstat_counter and qstat_dupes_counter:
+        qstat_error_rate = (bad_qstat_counter / qstat_dupes_counter)
+    else:
+        qstat_error_rate = 0
     print(f"/// qstat verify on ///")
     # print(f"qlist all:      {len(qstat_dupes)}")
     # print(f"qlist bad:      {bad_qlist_counter}")
