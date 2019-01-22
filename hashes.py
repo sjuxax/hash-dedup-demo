@@ -233,7 +233,7 @@ if cli_args.qstat_verify:
     print(f"qstat all:      {qstat_dupes_counter}")
     print(f"qstat ok:       {good_qstat_counter}")
     print(f"qstat bad:      {bad_qstat_counter}")
-    print("error rate:     {:.2%}".format(qstat_error_rate, '0.02'))
+    print("error rate:     {:.2%}".format(qstat_error_rate))
 else:
     print(f"Detected {qstat_dupes_counter} files during quickstat dedup.")
     print(f"Prehashed {count} files and full-hashed {full_count} files.")
