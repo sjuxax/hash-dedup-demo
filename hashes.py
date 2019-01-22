@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import xxhash
 import os
 import sys
