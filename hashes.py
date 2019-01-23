@@ -77,15 +77,15 @@ for root, dirs, files in dl_dir:
         item_path = os.path.join(root, file)
 
         stat_ret = os.stat(item_path, follow_symlinks=False)
+        quickstat_count += 1
+        print(f"\r quickstatting: {quickstat_count} / {count_limit} ", end="",
+              file=sys.stderr)
 
         sz = stat_ret.st_size
 
         if sz not in stat_idx:
             stat_idx[sz] = []
         stat_idx[sz].append(item_path)
-        quickstat_count += 1
-        print(f"\r quickstatting: {quickstat_count} / {count_limit} ", end="",
-              file=sys.stderr)
         if count_limit and quickstat_count >= count_limit:
             die_flag = True
             break
