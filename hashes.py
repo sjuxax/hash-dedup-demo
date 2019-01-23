@@ -11,6 +11,8 @@ cli_parser = argparse.ArgumentParser()
 cli_parser.add_argument('path', help='the path to search for duplicates.')
 cli_parser.add_argument('--limit', help='stop processing after limit files',
                         type=int)
+cli_parser.add_argument('--min-filesize', help='skip small files',
+                        type=int, default=131072)
 
 # cli_parser.add_argument('--prehash-blocks', type=int,
 #                         help='512K units to process for the prehash')
@@ -82,6 +84,9 @@ for root, dirs, files in dl_dir:
               file=sys.stderr)
 
         sz = stat_ret.st_size
+        if sz < cli_args.min_filesize:
+            # skip tiny files
+            continue
 
         if sz not in stat_idx:
             stat_idx[sz] = []
