@@ -21,8 +21,7 @@ dl_path = cli_args.path
 # "duplicated" the content if you've made a link to it.
 # To change, set followlinks=True on os.walk.
 dl_dir = os.walk(dl_path)
-piece_size = 524288
-# note: file count analyzed is capped for demo purposes
+piece_size = 256*1024
 count_limit = cli_args.limit
 
 if not os.path.exists(dl_path):
@@ -40,7 +39,7 @@ def build_hash(path, piece_size=piece_size, start_piece=0, end_piece=-1):
     # TODO: start_piece not yet implemented
     ihash = xxhash.xxh64()
     try:
-        ihandle = open(path, 'rb')
+        ihandle = open(path, 'rb', piece_size)
     except:
         print(f"\nCould not open {path}, skipping.")
         return None
