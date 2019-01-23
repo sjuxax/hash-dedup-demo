@@ -53,7 +53,11 @@ def build_hash(path, piece_size=piece_size, start_piece=0, end_piece=-1):
     else:
         imax = piece_size*end_piece
 
-    ihash.update(ihandle.read1(imax))
+    try:
+        ihash.update(ihandle.read1(imax))
+    except PermissionError:
+        # some files won't allow us to read -- just abort here
+        return None
     return ihash.hexdigest()
 
 count = 0
