@@ -3,6 +3,7 @@ import xxhash
 import os
 import sys
 import argparse
+import stat
 from pprint import pprint
 
 # CONSTANTS
@@ -64,6 +65,7 @@ def build_hash(path, piece_size=piece_size, start_piece=0, end_piece=-1):
 count = 0
 quickstat_count = 0
 die_flag = False
+irreg_count = 0
 
 # QUICKSTAT
 # --------
@@ -82,6 +84,11 @@ for root, dirs, files in dl_dir:
         quickstat_count += 1
         print(f"\r quickstatting: {quickstat_count} / {count_limit} ", end="",
               file=sys.stderr)
+
+        if not stat.S_ISREG(stat_ret.st_mode):
+            # skip all irregular files
+            irreg_count += 1
+            continue
 
         sz = stat_ret.st_size
         if sz < cli_args.min_filesize:
