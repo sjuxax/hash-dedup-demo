@@ -37,15 +37,27 @@ early_match = {}
 full_match = {}
 # stat_idx expects stat_idx[size] = [path, path, path, ...]
 stat_idx = {}
+handle_pool = {}
 
-def build_hash(path, piece_size=piece_size, start_piece=0, end_piece=-1):
-    # TODO: start_piece not yet implemented
-    ihash = xxhash.xxh64()
+def open_handle(path, buf_sz):
     try:
-        ihandle = open(path, 'rb', piece_size)
+        return open(path, 'rb', buf_sz)
     except:
         print(f"\nCould not open {path}, skipping.")
         return None
+
+
+def build_hash(path, piece_size=piece_size, start_piece=0, end_piece=-1,
+               handle_pool={}):
+    # TODO: start_piece not yet implemented
+    ihash = xxhash.xxh64()
+    if path in handle_pool:
+        ihandle = handle_pool[path]
+    else:
+        ihandle = open_handle(path, piece_size)
+        if not ihandle:
+            print(f"\nCould not open {path}, skipping.")
+            return
 
     # in a full implementation, we'd be comparing piecewise for greater
     # efficiency.
